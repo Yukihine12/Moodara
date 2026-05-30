@@ -447,7 +447,7 @@ const LoginPage: React.FC<LoginProps> = ({ onDemoMode }) => {
         </button>
 
         <p className="text-[10px] text-center text-rose-900/40 mt-6 leading-relaxed">
-          *Aplikasi ini dibuat dalam rangka kompetisi **#JuaraVibeCoding**. Data dijamin terenkripsi aman di Supabase.
+          © 2026 Moodara. All rights reserved.
         </p>
 
         {/* ========================================== */}
