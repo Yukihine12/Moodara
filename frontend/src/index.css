@@ -1,0 +1,139 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Outfit', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light;
+  color: #3f3535;
+  background-color: #fff9f9;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* HSL Palette - Cute Rose Theme */
+  --bg-primary: 345, 100%, 99%;
+  --pink-soft: 345, 100%, 96%;
+  --pink-medium: 345, 90%, 85%;
+  --pink-bright: 345, 80%, 65%;
+  --pink-dark: 345, 50%, 35%;
+  
+  --yellow-soft: 45, 100%, 94%;
+  --yellow-bright: 45, 100%, 65%;
+  
+  --purple-soft: 275, 100%, 96%;
+  --purple-bright: 275, 80%, 75%;
+  
+  --teal-soft: 165, 80%, 94%;
+  --teal-bright: 165, 70%, 55%;
+
+  --text-dark: 345, 20%, 20%;
+  --text-muted: 345, 15%, 50%;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at 10% 20%, rgb(255, 241, 241) 0%, rgb(255, 249, 249) 90%);
+  overflow-x: hidden;
+  color: hsl(var(--text-dark));
+}
+
+/* Gradient background per fase */
+.bg-phase-menstruation {
+  background: linear-gradient(135deg, #fff1f3 0%, #ffe3e7 100%);
+}
+
+.bg-phase-ovulation {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.bg-phase-follicular {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.bg-phase-luteal {
+  background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+}
+
+/* Dynamic glow animation */
+@keyframes breathing-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(244, 63, 94, 0.2), 0 0 20px rgba(244, 63, 94, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(244, 63, 94, 0.4), 0 0 35px rgba(244, 63, 94, 0.2);
+  }
+}
+
+.glow-active {
+  animation: breathing-glow 3s infinite ease-in-out;
+}
+
+/* Dynamic moving pastel gradient */
+.moving-pastel-bg {
+  background: linear-gradient(135deg, #fff0f2, #fffbf0, #faf5ff, #f0fdf4);
+  background-size: 400% 400%;
+  animation: gradient-move 15s ease infinite;
+}
+
+@keyframes gradient-move {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Glassmorphism Cards */
+.glass-card {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(244, 63, 94, 0.04);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1.5px solid rgba(244, 63, 94, 0.15);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-input:focus {
+  outline: none;
+  border-color: hsl(var(--pink-bright));
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.1);
+}
+
+/* Print CSS Stylesheet */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-page-break {
+    page-break-after: always !important;
+  }
+  .glass-card {
+    border: 1px solid #e2e8f0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+}
