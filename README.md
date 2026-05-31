@@ -25,18 +25,5 @@ Aplikasi Moodara dirancang menggunakan arsitektur **Serverless-First** yang efis
     Pencatatan harian yang intuitif untuk memantau intensitas aliran darah menstruasi (*flow*), tingkat nyeri tubuh (*pain level*), energi tubuh, serta fluktuasi suasana hati (*mood*).
 3.  **PDF Report Export (Cetak Laporan Medis sekali klik):**
     Fitur utama untuk kebutuhan klinis. Pengguna dapat mengunduh laporan perkembangan gejala bulanan dalam bentuk dokumen PDF yang terstruktur dan mudah dibaca oleh dokter spesialis kandungan (Obgyn) saat melakukan sesi konsultasi medis.
-4.  **Gemini AI Monthly Summary:**
-    Integrasi AI cerdas untuk memberikan analisis tren gejala kesehatan reproduksi bulanan pengguna secara personal dan edukatif.
 
----
-
-## 📐 Diagram Alur Data & Deployment
-
-```mermaid
-graph TD
-    User([Pengguna PWA]) -->|Akses UI via HTTPS| FE[Google Cloud Run: Frontend Nginx]
-    FE -->|Mengirim API Request| BE[Google Cloud Run: Backend Express]
-    BE -->|Query Data Relasional| DB[(Google Cloud SQL: MySQL)]
-    BE -->|Analisis Kesehatan Bulanan| AI[Google Vertex AI / Gemini API]
-```
 *© 2026 Moodara Project. Breathed to life for #JuaraVibeCoding.*
