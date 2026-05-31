@@ -3,12 +3,6 @@
 **Moodara** adalah aplikasi *Progressive Web App* (PWA) yang dirancang khusus untuk mendampingi wanita dalam memantau siklus bulanan, tingkat nyeri harian, fluktuasi energi, serta kondisi emosional secara menyeluruh, estetik, dan menenangkan.
 Aplikasi ini dibangun khusus dalam rangka kompetisi **Google Cloud Platform #JuaraVibeCoding**.
 ---
-## 🔗 Tautan Aplikasi Resmi (Live Deploy)
-
-🌐 Aplikasi Utama (Frontend): [https://moodara-frontend-929088704710.asia-southeast2.run.app](https://moodara-frontend-929088704710.asia-southeast2.run.app)
-
----
-
 ## 🛠️ Arsitektur Teknologi (Tech Stack)
 
 Aplikasi Moodara dirancang menggunakan arsitektur **Serverless-First** yang efisien, aman, dan berskala tinggi memanfaatkan infrastruktur Google Cloud Platform:
