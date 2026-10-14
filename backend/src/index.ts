@@ -11,7 +11,6 @@ import authRouter from './routes/auth.routes.js';
 import userRouter from './routes/user.routes.js';
 import cycleRouter from './routes/cycle.routes.js';
 import logRouter from './routes/log.routes.js';
-import aiRouter from './routes/ai.routes.js';
 
 const app = express();
 const PORT = env.PORT || 3001;
@@ -37,7 +36,7 @@ app.get('/api/health', (req: Request, res: Response) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    platform: 'Google Cloud Run'
+    platform: 'Ubuntu VPS (Docker)'
   });
 });
 
@@ -46,7 +45,6 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', userRouter);
 app.use('/api/cycles', cycleRouter);
 app.use('/api/logs', logRouter);
-app.use('/api/ai', aiRouter);
 
 // 404 Handler
 app.use((req: Request, res: Response) => {

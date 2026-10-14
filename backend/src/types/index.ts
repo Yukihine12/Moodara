@@ -34,14 +34,6 @@ export interface DailyLog {
   updated_at?: string;
 }
 
-export interface AiSummary {
-  id: string;
-  user_id: string;
-  month_year: string; // YYYY-MM
-  summary_content: string;
-  generated_at?: string;
-}
-
 export interface CyclePrediction {
   next_period_date: string;
   ovulation_date: string;

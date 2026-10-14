@@ -18,10 +18,10 @@ export class LogController {
       }
 
       // 1. Ambil data profil
-      const [profiles] = await pool.execute(
-        'SELECT avg_cycle_length, last_period_date FROM users WHERE id = ? LIMIT 1',
+      const { rows: profiles } = await pool.query(
+        'SELECT avg_cycle_length, last_period_date FROM users WHERE id = $1 LIMIT 1',
         [userId as string]
-      ) as any[];
+      );
 
       if (profiles.length === 0) {
         return res.status(404).json({ error: 'Profil pengguna tidak ditemukan.' });
@@ -29,10 +29,10 @@ export class LogController {
       const userProfile = profiles[0];
 
       // 2. Ambil siklus
-      const [cycles] = await pool.execute(
-        'SELECT * FROM cycles WHERE user_id = ? ORDER BY start_date ASC',
+      const { rows: cycles } = await pool.query(
+        'SELECT * FROM cycles WHERE user_id = $1 ORDER BY start_date ASC',
         [userId as string]
-      ) as any[];
+      );
 
       // 3. Prediksi
       const prediction = CycleService.predictNextCycle(
@@ -42,10 +42,10 @@ export class LogController {
       );
 
       // 4. Ambil log harian
-      const [logs] = await pool.execute(
-        'SELECT * FROM daily_logs WHERE user_id = ? AND log_date = ? LIMIT 1',
+      const { rows: logs } = await pool.query(
+        'SELECT * FROM daily_logs WHERE user_id = $1 AND log_date = $2 LIMIT 1',
         [userId as string, dateStr]
-      ) as any[];
+      );
 
       // 5. Kalkulasi fase dinamis
       const calculatedPhase = CycleService.calculatePhaseForDate(
@@ -54,8 +54,13 @@ export class LogController {
         prediction
       );
 
+      let logData = logs.length > 0 ? logs[0] : null;
+      if (logData && typeof logData.mood === 'string') {
+        try { logData.mood = JSON.parse(logData.mood); } catch (e) {}
+      }
+
       return res.status(200).json({
-        log: logs.length > 0 ? logs[0] : null,
+        log: logData,
         calculated_phase: calculatedPhase
       });
     } catch (err: any) {
@@ -76,8 +81,10 @@ export class LogController {
         return res.status(400).json({ error: 'Tanggal log (log_date) wajib diisi.' });
       }
 
+      // Validasi tanggal masa depan
       const targetDate = new Date(log_date);
-      const today = new Date(new Date().toISOString().split('T')[0]);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
       if (targetDate > today) {
         return res.status(400).json({ error: 'Anda tidak bisa mencatat gejala untuk tanggal di masa depan.' });
       }
@@ -85,26 +92,33 @@ export class LogController {
       const logId = uuidv4();
       const moodJson = JSON.stringify(mood || []);
 
-      await pool.execute(
+      // Simpan data log harian menggunakan upsert PostgreSQL (ON CONFLICT DO UPDATE)
+      await pool.query(
         `INSERT INTO daily_logs (id, user_id, log_date, flow_intensity, mood, pain_level, energy_level, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-           flow_intensity = VALUES(flow_intensity),
-           mood = VALUES(mood),
-           pain_level = VALUES(pain_level),
-           energy_level = VALUES(energy_level),
-           notes = VALUES(notes)`,
+         VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
+         ON CONFLICT (user_id, log_date) DO UPDATE SET
+           flow_intensity = EXCLUDED.flow_intensity,
+           mood = EXCLUDED.mood,
+           pain_level = EXCLUDED.pain_level,
+           energy_level = EXCLUDED.energy_level,
+           notes = EXCLUDED.notes,
+           updated_at = CURRENT_TIMESTAMP`,
         [logId, userId as string, log_date, flow_intensity || 'none', moodJson, pain_level || null, energy_level || null, notes || null]
       );
 
-      const [updatedLog] = await pool.execute(
-        'SELECT * FROM daily_logs WHERE user_id = ? AND log_date = ? LIMIT 1',
+      const { rows: updatedLog } = await pool.query(
+        'SELECT * FROM daily_logs WHERE user_id = $1 AND log_date = $2 LIMIT 1',
         [userId as string, log_date]
-      ) as any[];
+      );
+
+      let logResult = updatedLog[0];
+      if (logResult && typeof logResult.mood === 'string') {
+        try { logResult.mood = JSON.parse(logResult.mood); } catch (e) {}
+      }
 
       return res.status(200).json({
         message: 'Log harian berhasil disimpan',
-        log: updatedLog[0]
+        log: logResult
       });
     } catch (err: any) {
       console.error('SaveLog controller error:', err);
@@ -124,20 +138,20 @@ export class LogController {
         return res.status(400).json({ error: 'Parameter rentang tanggal (from & to) wajib diisi.' });
       }
 
-      const [profiles] = await pool.execute(
-        'SELECT avg_cycle_length, last_period_date FROM users WHERE id = ? LIMIT 1',
+      const { rows: profiles } = await pool.query(
+        'SELECT avg_cycle_length, last_period_date FROM users WHERE id = $1 LIMIT 1',
         [userId as string]
-      ) as any[];
+      );
 
       if (profiles.length === 0) {
         return res.status(404).json({ error: 'Profil pengguna tidak ditemukan.' });
       }
       const userProfile = profiles[0];
 
-      const [cycles] = await pool.execute(
-        'SELECT * FROM cycles WHERE user_id = ? ORDER BY start_date ASC',
+      const { rows: cycles } = await pool.query(
+        'SELECT * FROM cycles WHERE user_id = $1 ORDER BY start_date ASC',
         [userId as string]
-      ) as any[];
+      );
 
       const prediction = CycleService.predictNextCycle(
         cycles,
@@ -145,10 +159,10 @@ export class LogController {
         userProfile.last_period_date
       );
 
-      const [logs] = await pool.execute(
-        'SELECT * FROM daily_logs WHERE user_id = ? AND log_date >= ? AND log_date <= ? ORDER BY log_date ASC',
+      const { rows: logs } = await pool.query(
+        'SELECT * FROM daily_logs WHERE user_id = $1 AND log_date >= $2 AND log_date <= $3 ORDER BY log_date ASC',
         [userId as string, from as string, to as string]
-      ) as any[];
+      );
 
       const logsWithPhases = logs.map((log: any) => {
         const calculatedPhase = CycleService.calculatePhaseForDate(

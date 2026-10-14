@@ -2159,7 +2159,7 @@ const ExportView: React.FC<ExportProps> = ({ profile, logs }) => {
       </div>
 
       {/* 2. PRINT PREVIEW PAGE (Didesain seindah mungkin untuk cetakan) */}
-      <div className="glass-card rounded-3xl p-8 border border-slate-200 bg-white text-slate-800 shadow-md space-y-6 font-sans">
+      <div className="glass-card rounded-3xl p-4 sm:p-8 border border-slate-200 bg-white text-slate-800 shadow-md space-y-6 font-sans">
         
         {/* Header Laporan Cetak */}
         <div className="flex justify-between items-start border-b-2 border-rose-500 pb-4">
@@ -2221,32 +2221,34 @@ const ExportView: React.FC<ExportProps> = ({ profile, logs }) => {
               Tidak ada riwayat log harian untuk periode ini.
             </div>
           ) : (
-            <table className="w-full text-[10px] text-left border-collapse">
-              <thead>
-                <tr className="bg-rose-50/50 text-rose-900 font-extrabold border-b border-rose-100">
-                  <th className="py-2 px-2.5">Tanggal</th>
-                  <th className="py-2 px-2.5">Volume Haid</th>
-                  <th className="py-2 px-2.5">Nyeri</th>
-                  <th className="py-2 px-2.5">Energi</th>
-                  <th className="py-2 px-2.5">Suasana Hati</th>
-                  <th className="py-2 px-2.5">Catatan Keluhan / Gejala</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {activeMonthLogs.map((log) => (
-                  <tr key={log.log_date} className="hover:bg-slate-50/30">
-                    <td className="py-2 px-2.5 font-bold">{log.log_date ? parseInt(log.log_date.substring(0, 10).split('-')[2], 10) : '-'}</td>
-                    <td className="py-2 px-2.5 font-semibold capitalize">{log.flow_intensity || 'none'}</td>
-                    <td className="py-2 px-2.5 font-black">{log.pain_level || 1}</td>
-                    <td className="py-2 px-2.5 font-black">{log.energy_level || 4}</td>
-                    <td className="py-2 px-2.5 font-bold">{log.mood?.join(', ') || 'calm'}</td>
-                    <td className="py-2 px-2.5 max-w-[150px] truncate text-slate-500" title={log.notes}>
-                      {log.notes || '-'}
-                    </td>
+            <div className="overflow-x-auto border border-rose-100 rounded-2xl">
+              <table className="w-full min-w-[550px] text-[10px] text-left border-collapse">
+                <thead>
+                  <tr className="bg-rose-50/50 text-rose-900 font-extrabold border-b border-rose-100">
+                    <th className="py-2 px-2.5">Tanggal</th>
+                    <th className="py-2 px-2.5">Volume Haid</th>
+                    <th className="py-2 px-2.5">Nyeri</th>
+                    <th className="py-2 px-2.5">Energi</th>
+                    <th className="py-2 px-2.5">Suasana Hati</th>
+                    <th className="py-2 px-2.5">Catatan Keluhan / Gejala</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {activeMonthLogs.map((log) => (
+                    <tr key={log.log_date} className="hover:bg-slate-50/30">
+                      <td className="py-2 px-2.5 font-bold">{log.log_date ? parseInt(log.log_date.substring(0, 10).split('-')[2], 10) : '-'}</td>
+                      <td className="py-2 px-2.5 font-semibold capitalize">{log.flow_intensity || 'none'}</td>
+                      <td className="py-2 px-2.5 font-black">{log.pain_level || 1}</td>
+                      <td className="py-2 px-2.5 font-black">{log.energy_level || 4}</td>
+                      <td className="py-2 px-2.5 font-bold">{log.mood?.join(', ') || 'calm'}</td>
+                      <td className="py-2 px-2.5 max-w-[200px] truncate text-slate-500" title={log.notes}>
+                        {log.notes || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 

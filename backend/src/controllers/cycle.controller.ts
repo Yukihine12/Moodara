@@ -12,20 +12,20 @@ export class CycleController {
     try {
       const userId = req.userId;
 
-      const [profiles] = await pool.execute(
-        'SELECT avg_cycle_length, last_period_date FROM users WHERE id = ? LIMIT 1',
+      const { rows: profiles } = await pool.query(
+        'SELECT avg_cycle_length, last_period_date FROM users WHERE id = $1 LIMIT 1',
         [userId as string]
-      ) as any[];
+      );
 
       if (profiles.length === 0) {
         return res.status(404).json({ error: 'Profil pengguna belum disetup. Lakukan onboarding terlebih dahulu.' });
       }
       const userProfile = profiles[0];
 
-      const [cycles] = await pool.execute(
-        'SELECT * FROM cycles WHERE user_id = ? ORDER BY start_date ASC',
+      const { rows: cycles } = await pool.query(
+        'SELECT * FROM cycles WHERE user_id = $1 ORDER BY start_date ASC',
         [userId as string]
-      ) as any[];
+      );
 
       const prediction = CycleService.predictNextCycle(
         cycles,
@@ -56,10 +56,10 @@ export class CycleController {
       }
 
       if (action === 'START_PERIOD') {
-        const [activeCycleRows] = await pool.execute(
-          'SELECT * FROM cycles WHERE user_id = ? AND end_date IS NULL ORDER BY start_date DESC LIMIT 1',
+        const { rows: activeCycleRows } = await pool.query(
+          'SELECT * FROM cycles WHERE user_id = $1 AND end_date IS NULL ORDER BY start_date DESC LIMIT 1',
           [userId as string]
-        ) as any[];
+        );
 
         if (activeCycleRows.length > 0) {
           const prevCycle = activeCycleRows[0];
@@ -69,24 +69,24 @@ export class CycleController {
             return res.status(400).json({ error: 'Tanggal mulai haid baru harus lebih lambat dari tanggal mulai haid sebelumnya.' });
           }
 
-          await pool.execute(
-            'UPDATE cycles SET cycle_length = ? WHERE id = ?',
+          await pool.query(
+            'UPDATE cycles SET cycle_length = $1 WHERE id = $2',
             [cycleLength, prevCycle.id]
           );
         }
 
         if (activeCycleRows.length === 0) {
-          const [lastClosedCycleRows] = await pool.execute(
-            'SELECT * FROM cycles WHERE user_id = ? AND end_date IS NOT NULL ORDER BY start_date DESC LIMIT 1',
+          const { rows: lastClosedCycleRows } = await pool.query(
+            'SELECT * FROM cycles WHERE user_id = $1 AND end_date IS NOT NULL ORDER BY start_date DESC LIMIT 1',
             [userId as string]
-          ) as any[];
+          );
 
           if (lastClosedCycleRows.length > 0) {
             const closedCycle = lastClosedCycleRows[0];
             const cycleLength = differenceInDays(date, closedCycle.start_date);
             if (cycleLength > 0) {
-              await pool.execute(
-                'UPDATE cycles SET cycle_length = ? WHERE id = ?',
+              await pool.query(
+                'UPDATE cycles SET cycle_length = $1 WHERE id = $2',
                 [cycleLength, closedCycle.id]
               );
             }
@@ -94,20 +94,20 @@ export class CycleController {
         }
 
         const newCycleId = uuidv4();
-        await pool.execute(
-          'INSERT INTO cycles (id, user_id, start_date) VALUES (?, ?, ?)',
+        await pool.query(
+          'INSERT INTO cycles (id, user_id, start_date) VALUES ($1, $2, $3)',
           [newCycleId, userId as string, date]
         );
 
-        await pool.execute(
-          'UPDATE users SET last_period_date = ? WHERE id = ?',
+        await pool.query(
+          'UPDATE users SET last_period_date = $1 WHERE id = $2',
           [date, userId as string]
         );
 
-        const [newInsertedCycle] = await pool.execute(
-          'SELECT * FROM cycles WHERE id = ? LIMIT 1',
+        const { rows: newInsertedCycle } = await pool.query(
+          'SELECT * FROM cycles WHERE id = $1 LIMIT 1',
           [newCycleId]
-        ) as any[];
+        );
 
         return res.status(201).json({
           message: 'Haid berhasil dicatat dimulai!',
@@ -115,10 +115,10 @@ export class CycleController {
         });
 
       } else if (action === 'END_PERIOD') {
-        const [activeCycleRows] = await pool.execute(
-          'SELECT * FROM cycles WHERE user_id = ? AND end_date IS NULL ORDER BY start_date DESC LIMIT 1',
+        const { rows: activeCycleRows } = await pool.query(
+          'SELECT * FROM cycles WHERE user_id = $1 AND end_date IS NULL ORDER BY start_date DESC LIMIT 1',
           [userId as string]
-        ) as any[];
+        );
 
         if (activeCycleRows.length === 0) {
           return res.status(400).json({ error: 'Tidak ada siklus haid aktif yang terdeteksi berjalan. Silakan tap haid mulai terlebih dahulu.' });
@@ -139,15 +139,15 @@ export class CycleController {
           }
         }
 
-        await pool.execute(
-          'UPDATE cycles SET end_date = ?, period_duration = ? WHERE id = ?',
+        await pool.query(
+          'UPDATE cycles SET end_date = $1, period_duration = $2 WHERE id = $3',
           [end_date, periodDuration, currentCycle.id]
         );
 
-        const [updatedCycleRows] = await pool.execute(
-          'SELECT * FROM cycles WHERE id = ? LIMIT 1',
+        const { rows: updatedCycleRows } = await pool.query(
+          'SELECT * FROM cycles WHERE id = $1 LIMIT 1',
           [currentCycle.id]
-        ) as any[];
+        );
 
         return res.status(200).json({
           message: 'Haid berhasil dicatat selesai!',
