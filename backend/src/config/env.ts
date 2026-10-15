@@ -5,12 +5,12 @@ export const env = {
   PORT: process.env.PORT || '3001',
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
   DB_HOST: process.env.DB_HOST || '127.0.0.1',
-  DB_USER: process.env.DB_USER || 'postgres',
-  DB_PASSWORD: process.env.DB_PASSWORD || '',
+  DB_USER: process.env.DB_USER || 'moodara_app',
+  DB_PASSWORD: process.env.DB_PASSWORD || 'Nazwa',
   DB_NAME: process.env.DB_NAME || 'moodara',
-  DB_PORT: process.env.DB_PORT || '5432',
+  DB_PORT: process.env.DB_PORT || '5433',
   DB_SSL: process.env.DB_SSL || 'false',
-  JWT_SECRET: process.env.JWT_SECRET || 'secret'
+  JWT_SECRET: process.env.JWT_SECRET || 'supersecretkeyselamatandipresentasi'
 };
 
 // Validasi sederhana
