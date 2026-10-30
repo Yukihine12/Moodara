@@ -1,10 +1,14 @@
 import { Router } from 'express';
-import { login, register, resetSimulated } from '../controllers/auth.controller.js';
+import { login, register, changePassword } from '../controllers/auth.controller.js';
+import { authRateLimiter, sensitiveRateLimiter } from '../middleware/rateLimit.middleware.js';
 
 const router = Router();
 
-router.post('/login', login);
-router.post('/register', register);
-router.post('/reset-simulated', resetSimulated);
+// Endpoint autentikasi dilindungi rate limiter untuk mencegah brute-force
+router.post('/login', authRateLimiter, login);
+router.post('/register', authRateLimiter, register);
+
+// Ganti password wajib verifikasi password lama + rate limit ketat
+router.post('/change-password', sensitiveRateLimiter, changePassword);
 
 export default router;

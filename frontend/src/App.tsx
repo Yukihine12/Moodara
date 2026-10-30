@@ -18,30 +18,7 @@ import {
 import { api } from './lib/api.js';
 import { useAuth, AuthProvider } from './store/AuthContext.js';
 import { CycleCalculator, formatDate, addDays, differenceInDays } from './utils/cycleCalculator.js';
-
-// =========================================================================
-// MOCK DATA (Fallback jika API backend/Supabase offline selama local demo)
-// =========================================================================
-const MOCK_PROFILE = {
-  name: "Rara",
-  birth_date: "2003-08-15",
-  height: 160,
-  weight: 52,
-  last_period_date: "2026-05-10",
-  avg_cycle_length: 28
-};
-
-const MOCK_CYCLES: any[] = [
-  { id: '1', user_id: 'mock', start_date: '2026-03-12', end_date: '2026-03-17', cycle_length: 29, period_duration: 6 },
-  { id: '2', user_id: 'mock', start_date: '2026-04-10', end_date: '2026-04-15', cycle_length: 30, period_duration: 6 },
-  { id: '3', user_id: 'mock', start_date: '2026-05-10', end_date: null, cycle_length: null, period_duration: null }
-];
-
-const MOCK_LOGS = [
-  { log_date: '2026-05-10', flow_intensity: 'heavy', mood: ['sad', 'anxious'], pain_level: 4, energy_level: 2, notes: "Kram perut parah di hari pertama." },
-  { log_date: '2026-05-11', flow_intensity: 'medium', mood: ['sad'], pain_level: 3, energy_level: 3, notes: "Masih kram sedikit." },
-  { log_date: '2026-05-12', flow_intensity: 'light', mood: ['calm'], pain_level: 2, energy_level: 4, notes: "Nyeri mereda." }
-];
+import { MOCK_PROFILE, MOCK_CYCLES, MOCK_LOGS } from './data/mockData.js';
 
 // =========================================================================
 // MAIN CONTAINER COMPONENT
@@ -316,12 +293,14 @@ const LoginPage: React.FC<LoginProps> = ({ onDemoMode }) => {
   const [authError, setAuthError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   
-  // Password Recovery States
+  // Ganti Password States (aman: wajib verifikasi password lama)
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
-  const [resetStep, setResetStep] = useState(1);
-  const [newSimulatedPassword, setNewSimulatedPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -408,7 +387,7 @@ const LoginPage: React.FC<LoginProps> = ({ onDemoMode }) => {
                   onClick={() => setShowResetModal(true)}
                   className="text-[10px] font-extrabold text-rose-600 hover:text-rose-800 transition-colors cursor-pointer"
                 >
-                  Lupa Password?
+                  Ganti Password?
                 </button>
               </div>
             )}
@@ -450,108 +429,117 @@ const LoginPage: React.FC<LoginProps> = ({ onDemoMode }) => {
           © 2026 Moodara. All rights reserved.
         </p>
 
-        {/* ========================================== */}
-        {/* PREMIUM MODAL: SIMULATED PASSWORD RECOVERY */}
-        {/* ========================================== */}
+        {/* ============================================= */}
+        {/* MODAL: GANTI PASSWORD (AMAN - verifikasi lama) */}
+        {/* ============================================= */}
         {showResetModal && (
           <div className="fixed inset-0 bg-rose-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in no-print">
             <div className="w-full max-w-sm glass-card bg-white/95 rounded-3xl p-6 border border-rose-100 shadow-2xl relative space-y-4 animate-scale-up">
               <button
                 onClick={() => {
                   setShowResetModal(false);
-                  setResetStep(1);
                   setResetEmail('');
-                  setNewSimulatedPassword('');
+                  setCurrentPassword('');
+                  setNewPassword('');
+                  setResetError(null);
+                  setResetSuccess(null);
                 }}
                 className="absolute top-4 right-4 text-rose-900/40 hover:text-rose-900 font-extrabold text-lg transition-colors cursor-pointer"
               >
                 ✕
               </button>
-              
+
               <div className="text-center">
                 <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-2 text-rose-500 shadow-sm">
                   <Sparkles className="w-6 h-6 fill-rose-100" />
                 </div>
-                <h4 className="text-base font-extrabold text-rose-950">Pemulihan Akun</h4>
-                <p className="text-[11px] text-rose-600/70 mt-1">Lupa password akun Lia? Tenang saja, kami bantu pulihkan instan!</p>
+                <h4 className="text-base font-extrabold text-rose-950">Ganti Password</h4>
+                <p className="text-[11px] text-rose-600/70 mt-1">
+                  Demi keamanan akun, masukkan password lama Anda untuk membuat password baru.
+                </p>
               </div>
 
-              {resetStep === 1 ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-rose-900/60 uppercase mb-1 ml-1">Alamat Email Terdaftar</label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="email@kamu.com"
-                      value={resetEmail}
-                      onChange={(e) => setResetEmail(e.target.value)}
-                      className="w-full px-4 py-2.5 text-xs rounded-2xl glass-input text-rose-900 border border-rose-100/50"
-                    />
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (!resetEmail) {
-                        alert('Silakan masukkan email Anda terlebih dahulu.');
-                        return;
-                      }
-                      setResetLoading(true);
-                      setTimeout(() => {
-                        setResetLoading(false);
-                        setResetStep(2);
-                      }, 1500);
-                    }}
-                    disabled={resetLoading}
-                    className="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 rounded-2xl text-xs transition-all shadow-md flex items-center justify-center cursor-pointer"
-                  >
-                    {resetLoading ? 'Menghubungkan Server...' : '✓ Kirim Tautan Pemulihan'}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-3 text-center">
-                  <div className="p-3 bg-rose-50 border border-rose-100 text-rose-800 rounded-2xl text-[10px] font-bold leading-relaxed text-left">
-                    ✨ Tautan Reset Simulasi Siap!
-                    <p className="font-normal mt-0.5 text-rose-600 leading-normal">Untuk kelancaran demo di depan juri/dosen, Anda dapat langsung mengatur ulang password baru di bawah ini:</p>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-rose-900/60 uppercase mb-1 ml-1 text-left">Password Baru Anda</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ketik password baru minimal 6 huruf..."
-                      value={newSimulatedPassword}
-                      onChange={(e) => setNewSimulatedPassword(e.target.value)}
-                      className="w-full px-4 py-2.5 text-xs rounded-2xl glass-input text-rose-900 border border-rose-100/50 text-center font-bold"
-                    />
-                  </div>
-                  <button
-                    onClick={async () => {
-                      if (!newSimulatedPassword || newSimulatedPassword.length < 6) {
-                        alert('Masukkan password baru minimal 6 karakter.');
-                        return;
-                      }
-                      setResetLoading(true);
-                      try {
-                        await api.post('/api/auth/reset-simulated', { email: resetEmail, password: newSimulatedPassword });
-                        alert('Password berhasil diperbarui! Silakan log in menggunakan password baru tersebut.');
-                        setShowResetModal(false);
-                        setResetStep(1);
-                        setResetEmail('');
-                        setNewSimulatedPassword('');
-                      } catch (err: any) {
-                        console.error('Password reset failed:', err);
-                        alert(err.response?.data?.error || 'Email tidak ditemukan atau terjadi kesalahan jaringan.');
-                      } finally {
-                        setResetLoading(false);
-                      }
-                    }}
-                    disabled={resetLoading}
-                    className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-2xl text-xs transition-all shadow-md cursor-pointer animate-pulse"
-                  >
-                    {resetLoading ? 'Menyimpan ke Database...' : '✓ Simpan Password Baru'}
-                  </button>
+              {resetError && (
+                <div className="bg-rose-50 border border-rose-100 text-rose-800 text-[11px] px-3 py-2 rounded-xl flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                  <span>{resetError}</span>
                 </div>
               )}
+              {resetSuccess && (
+                <div className="bg-teal-50 border border-teal-100 text-teal-800 text-[11px] px-3 py-2 rounded-xl">
+                  {resetSuccess}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-rose-900/60 uppercase mb-1 ml-1">Email Terdaftar</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="email@kamu.com"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    className="w-full px-4 py-2.5 text-xs rounded-2xl glass-input text-rose-900 border border-rose-100/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-rose-900/60 uppercase mb-1 ml-1">Password Lama</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Password Anda saat ini"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full px-4 py-2.5 text-xs rounded-2xl glass-input text-rose-900 border border-rose-100/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-rose-900/60 uppercase mb-1 ml-1">Password Baru</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Minimal 6 karakter"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full px-4 py-2.5 text-xs rounded-2xl glass-input text-rose-900 border border-rose-100/50"
+                  />
+                </div>
+                <button
+                  onClick={async () => {
+                    setResetError(null);
+                    setResetSuccess(null);
+                    if (!resetEmail || !currentPassword || !newPassword) {
+                      setResetError('Semua kolom wajib diisi.');
+                      return;
+                    }
+                    if (newPassword.length < 6) {
+                      setResetError('Password baru minimal 6 karakter.');
+                      return;
+                    }
+                    setResetLoading(true);
+                    try {
+                      await api.post('/api/auth/change-password', {
+                        email: resetEmail,
+                        current_password: currentPassword,
+                        new_password: newPassword
+                      });
+                      setResetSuccess('Password berhasil diperbarui! Silakan masuk dengan password baru.');
+                      setCurrentPassword('');
+                      setNewPassword('');
+                    } catch (err: any) {
+                      console.error('Change password failed:', err);
+                      setResetError(err.response?.data?.error || 'Gagal memperbarui password. Periksa kembali data Anda.');
+                    } finally {
+                      setResetLoading(false);
+                    }
+                  }}
+                  disabled={resetLoading}
+                  className="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 rounded-2xl text-xs transition-all shadow-md flex items-center justify-center cursor-pointer disabled:opacity-60"
+                >
+                  {resetLoading ? 'Menyimpan...' : 'Simpan Password Baru'}
+                </button>
+              </div>
             </div>
           </div>
         )}

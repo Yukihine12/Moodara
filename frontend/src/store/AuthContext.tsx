@@ -36,16 +36,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setHasProfile(false);
       return false;
     } catch (error: any) {
-      if (error.response?.status === 404) {
+      const status = error.response?.status;
+
+      // 404 = user sudah login tapi belum onboarding. Ini kondisi normal.
+      if (status === 404) {
         setHasProfile(false);
         localStorage.removeItem('moodara_onboarded');
         return false;
       }
-      if (localStorage.getItem('moodara_onboarded') === 'true') {
-        console.warn('⚠️ Gagal memverifikasi profil secara online. Menggunakan LocalStorage recovery fallback...');
+
+      // 401 = sesi tidak valid / token kadaluarsa. JANGAN pura-pura punya profil;
+      // paksa logout agar user masuk ulang. Ini menutup celah "fallback diam-diam"
+      // yang dulu menyembunyikan kegagalan autentikasi sebenarnya.
+      if (status === 401) {
+        console.warn('Sesi tidak valid saat verifikasi profil. Membersihkan sesi.');
+        setHasProfile(false);
+        localStorage.removeItem('moodara_onboarded');
+        localStorage.removeItem('moodara_access_token');
+        localStorage.removeItem('moodara_user');
+        setUser(null);
+        return false;
+      }
+
+      // Hanya untuk kegagalan jaringan murni (server down, timeout) kita boleh
+      // memakai cache onboarding agar user yang sudah terbukti punya profil
+      // tidak terjebak di layar onboarding saat koneksi bermasalah sesaat.
+      const isNetworkError = !error.response;
+      if (isNetworkError && localStorage.getItem('moodara_onboarded') === 'true') {
+        console.warn('Gagal verifikasi profil (jaringan). Memakai cache onboarding sementara.');
         setHasProfile(true);
         return true;
       }
+
       setHasProfile(false);
       return false;
     }
