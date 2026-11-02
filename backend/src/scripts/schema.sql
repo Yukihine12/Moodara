@@ -18,10 +18,11 @@ CREATE TABLE IF NOT EXISTS users (
   id VARCHAR(36) PRIMARY KEY REFERENCES auth_users(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
   birth_date DATE,
-  height DECIMAL(5,2),
-  weight DECIMAL(5,2),
+  height DECIMAL(5,2) NOT NULL CHECK (height BETWEEN 50 AND 250),
+  weight DECIMAL(5,2) NOT NULL CHECK (weight BETWEEN 20 AND 350),
   last_period_date DATE NOT NULL,
   avg_cycle_length INT DEFAULT 28 CHECK (avg_cycle_length BETWEEN 15 AND 90),
+  avg_period_duration INT DEFAULT 7 CHECK (avg_period_duration BETWEEN 1 AND 20),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -58,8 +59,22 @@ CREATE TABLE IF NOT EXISTS daily_logs (
   CONSTRAINT unique_user_log_date UNIQUE (user_id, log_date)
 );
 
--- 5. Index untuk mempercepat query yang sering dipakai
+-- 5. Tabel Riwayat Pengukuran Tubuh (berat & tinggi) untuk grafik time-series
+CREATE TABLE IF NOT EXISTS body_measurements (
+  id VARCHAR(36) PRIMARY KEY,
+  user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type VARCHAR(10) NOT NULL CHECK (type IN ('weight', 'height')),
+  value DECIMAL(6,2) NOT NULL
+    CHECK ((type = 'weight' AND value BETWEEN 20 AND 350)
+       OR  (type = 'height' AND value BETWEEN 50 AND 250)),
+  recorded_at DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. Index untuk mempercepat query yang sering dipakai
 CREATE INDEX IF NOT EXISTS idx_cycles_user_id ON cycles(user_id);
 CREATE INDEX IF NOT EXISTS idx_cycles_start_date ON cycles(start_date);
 CREATE INDEX IF NOT EXISTS idx_daily_logs_user_id ON daily_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_daily_logs_date ON daily_logs(log_date);
+CREATE INDEX IF NOT EXISTS idx_measurements_user_type_date
+  ON body_measurements(user_id, type, recorded_at);

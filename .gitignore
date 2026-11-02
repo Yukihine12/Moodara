@@ -9,6 +9,7 @@ frontend/node_modules/
 4-deployment
 5-migration
 6-fiksasi
+.kiro
 
 # 🏗️ Build Outputs 
 dist/
@@ -44,3 +45,5 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+docker-compose.yaml
+compose.yaml

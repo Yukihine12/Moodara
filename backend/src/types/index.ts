@@ -38,6 +38,8 @@ export interface CyclePrediction {
   next_period_date: string;
   ovulation_date: string;
   ovulation_window: string[];
-  current_cycle_day: number;
+  current_cycle_day: number; // non-negatif; bisa > panjang rata-rata saat telat
   days_until_period: number;
+  is_late: boolean; // true saat today melewati next_period_date (Req 5.8)
+  is_estimate: boolean; // true saat 0 siklus selesai -> default 28 (Req 5.5)
 }

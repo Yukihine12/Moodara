@@ -15,10 +15,22 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
+import { AxiosError } from 'axios';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+} from 'recharts';
+import type { ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { api } from './lib/api.js';
 import { useAuth, AuthProvider } from './store/AuthContext.js';
 import { CycleCalculator, formatDate, addDays, differenceInDays } from './utils/cycleCalculator.js';
 import { MOCK_PROFILE, MOCK_CYCLES, MOCK_LOGS } from './data/mockData.js';
+import { canProceedStep1, validateWeight, RANGES, type FieldError } from './utils/validation.js';
 
 // =========================================================================
 // MAIN CONTAINER COMPONENT
@@ -565,9 +577,34 @@ const OnboardingPage: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [avgCycle, setAvgCycle] = useState('28');
   const [avgPeriod, setAvgPeriod] = useState('7');
   const [loading, setLoading] = useState(false);
+  const [step1Errors, setStep1Errors] = useState<FieldError[]>([]);
+  // Pesan error spesifik saat penyimpanan onboarding gagal (Req 4.3).
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Tanggal hari ini (YYYY-MM-DD) untuk atribut `max` input tanggal lahir
+  // sehingga tanggal masa depan tidak dapat dipilih (Req 3.5).
+  const todayISO = formatDate(new Date());
+
+  // Pesan error inline per field dari hasil gating langkah 1.
+  const errorFor = (field: string): string | undefined =>
+    step1Errors.find((e) => e.field === field)?.message;
+
+  const handleProceedStep1 = () => {
+    const { canProceed, errors } = canProceedStep1({
+      name,
+      height,
+      weight,
+      birth_date: birthDate,
+    });
+    setStep1Errors(errors);
+    if (canProceed) {
+      setStep(2);
+    }
+  };
 
   const handleSubmit = async () => {
     setLoading(true);
+    setSubmitError(null);
     try {
       await api.post('/api/users/onboard', {
         name,
@@ -575,13 +612,20 @@ const OnboardingPage: React.FC<OnboardingProps> = ({ onComplete }) => {
         height: height ? parseFloat(height) : null,
         weight: weight ? parseFloat(weight) : null,
         last_period_date: lastPeriod,
-        avg_cycle_length: parseInt(avgCycle)
+        avg_cycle_length: parseInt(avgCycle),
+        avg_period_duration: parseInt(avgPeriod)
       });
+      // Hanya pada sukses (201) arahkan ke dashboard via navigasi state (Req 4.2).
       onComplete();
     } catch (error) {
       console.error("Onboarding saving failed:", error);
-      alert("Gagal menyimpan data onboarding. Menggunakan default...");
-      onComplete();
+      // Tampilkan penyebab spesifik dari backend, bukan pesan generik.
+      // JANGAN panggil onComplete, tetap di layar, pertahankan nilai input (Req 4.3).
+      const axiosError = error as AxiosError<{ error?: string }>;
+      const specificMessage =
+        axiosError.response?.data?.error ||
+        'Gagal menyimpan data onboarding. Periksa kembali data Anda lalu coba lagi.';
+      setSubmitError(specificMessage);
     } finally {
       setLoading(false);
     }
@@ -615,6 +659,9 @@ const OnboardingPage: React.FC<OnboardingProps> = ({ onComplete }) => {
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-4 py-3 rounded-2xl glass-input text-sm text-rose-900"
               />
+              {errorFor('name') && (
+                <p className="text-[11px] text-red-600 mt-1 ml-1">{errorFor('name')}</p>
+              )}
             </div>
 
             <div>
@@ -622,10 +669,14 @@ const OnboardingPage: React.FC<OnboardingProps> = ({ onComplete }) => {
               <input 
                 type="date" 
                 required
+                max={todayISO}
                 value={birthDate}
                 onChange={(e) => setBirthDate(e.target.value)}
                 className="w-full px-4 py-3 rounded-2xl glass-input text-sm text-rose-900"
               />
+              {errorFor('birth_date') && (
+                <p className="text-[11px] text-red-600 mt-1 ml-1">{errorFor('birth_date')}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -638,6 +689,9 @@ const OnboardingPage: React.FC<OnboardingProps> = ({ onComplete }) => {
                   onChange={(e) => setHeight(e.target.value)}
                   className="w-full px-4 py-3 rounded-2xl glass-input text-sm text-rose-900"
                 />
+                {errorFor('height') && (
+                  <p className="text-[11px] text-red-600 mt-1 ml-1">{errorFor('height')}</p>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-bold text-rose-900/60 uppercase tracking-wider mb-1 ml-1">Berat Badan (kg)</label>
@@ -648,14 +702,14 @@ const OnboardingPage: React.FC<OnboardingProps> = ({ onComplete }) => {
                   onChange={(e) => setWeight(e.target.value)}
                   className="w-full px-4 py-3 rounded-2xl glass-input text-sm text-rose-900"
                 />
+                {errorFor('weight') && (
+                  <p className="text-[11px] text-red-600 mt-1 ml-1">{errorFor('weight')}</p>
+                )}
               </div>
             </div>
 
             <button 
-              onClick={() => {
-                if (!name || !birthDate) return alert('Nama dan tanggal lahir harus diisi!');
-                setStep(2);
-              }}
+              onClick={handleProceedStep1}
               className="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-2xl shadow-lg transition-all text-sm mt-4"
             >
               Lanjutkan
@@ -745,12 +799,19 @@ const OnboardingPage: React.FC<OnboardingProps> = ({ onComplete }) => {
               </p>
             </div>
 
+            {submitError && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-2xl px-4 py-3 text-left">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-red-600 leading-relaxed">{submitError}</p>
+              </div>
+            )}
+
             <button 
               onClick={handleSubmit}
               disabled={loading}
               className="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-2xl shadow-lg transition-all text-sm mt-4"
             >
-              {loading ? "Menyimpan..." : "Masuk ke Dashboard"}
+              {loading ? "Menyimpan..." : submitError ? "Coba Lagi" : "Masuk ke Dashboard"}
             </button>
           </div>
         )}
@@ -2264,46 +2325,242 @@ interface AccountProps {
   triggerError: (msg: string) => void;
 }
 
+/**
+ * Satu baris riwayat pengukuran tubuh (berat/tinggi) dari backend. Mencerminkan
+ * tipe `Measurement` pada `backend/src/controllers/user.controller.ts`.
+ * `value` dapat tiba sebagai string (driver pg mengembalikan DECIMAL sebagai
+ * string); `recorded_at` berformat YYYY-MM-DD.
+ */
+interface Measurement {
+  id: string;
+  user_id: string;
+  type: 'weight' | 'height';
+  value: number | string;
+  recorded_at: string;
+}
+
+/** Satu titik pada grafik time-series: label tanggal + nilai numerik. */
+interface SeriesPoint {
+  date: string; // YYYY-MM-DD, terurut menaik
+  label: string; // label singkat untuk sumbu-X (mis. "10 Mei")
+  value: number;
+}
+
+const SERIES_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+/** Membuat label sumbu-X singkat dari string tanggal YYYY-MM-DD. */
+function formatSeriesLabel(recordedAt: string): string {
+  const d = new Date(recordedAt);
+  if (isNaN(d.getTime())) return recordedAt;
+  return `${d.getDate()} ${SERIES_MONTHS[d.getMonth()]}`;
+}
+
+/**
+ * Fungsi MURNI yang menyiapkan data grafik time-series dari entri pengukuran.
+ *
+ * Mengurutkan entri berdasarkan `recorded_at` dari yang terlama ke terbaru
+ * (Req 6.2, 6.3) dan menangani kasus 0 titik (array kosong) maupun 1 titik
+ * (satu node) tanpa melempar error (Req 6.7). `value` dikoersi ke number agar
+ * nilai DECIMAL bertipe string dari backend tetap dapat dirender.
+ */
+function buildSeries(entries: Measurement[] | null | undefined): SeriesPoint[] {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return [];
+  }
+
+  return entries
+    .map((e) => ({
+      date: e.recorded_at,
+      label: formatSeriesLabel(e.recorded_at),
+      value: typeof e.value === 'number' ? e.value : Number(e.value),
+    }))
+    .filter((p) => Number.isFinite(p.value))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Grafik garis time-series untuk satu metrik tubuh (berat atau tinggi).
+ *
+ * Menangani kasus 0 titik (pesan "belum ada data") dan 1 titik (satu node
+ * dirender sebagai dot) tanpa error (Req 6.7). Data diasumsikan sudah terurut
+ * menaik oleh {@link buildSeries}.
+ */
+const MeasurementChart: React.FC<{
+  title: string;
+  unit: string;
+  color: string;
+  data: SeriesPoint[];
+}> = ({ title, unit, color, data }) => {
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between items-center px-1">
+        <span className="text-xs font-bold text-rose-900/80">{title}</span>
+        {data.length > 0 && (
+          <span className="text-[10px] font-semibold text-rose-900/50">
+            {data[data.length - 1].value} {unit}
+          </span>
+        )}
+      </div>
+
+      {data.length === 0 ? (
+        <div className="h-32 flex items-center justify-center rounded-2xl bg-rose-50/40 border border-rose-100/40">
+          <span className="text-[11px] font-semibold text-rose-900/40">Belum ada data riwayat.</span>
+        </div>
+      ) : (
+        <div className="h-40 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#fde4e4" />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 9, fill: '#9f1239' }}
+                tickLine={false}
+                axisLine={{ stroke: '#fbcfe8' }}
+              />
+              <YAxis
+                domain={['dataMin - 2', 'dataMax + 2']}
+                tick={{ fontSize: 9, fill: '#9f1239' }}
+                tickLine={false}
+                axisLine={false}
+                width={32}
+              />
+              <Tooltip
+                formatter={(value: ValueType | undefined) => [`${value} ${unit}`, title]}
+                contentStyle={{
+                  borderRadius: 12,
+                  border: '1px solid #fecdd3',
+                  fontSize: 11,
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={color}
+                strokeWidth={2.5}
+                dot={{ r: 3, fill: color }}
+                activeDot={{ r: 5 }}
+                isAnimationActive={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const AccountView: React.FC<AccountProps> = ({ profile, isDemo, onRefresh, triggerError }) => {
   const [weight, setWeight] = useState<number>(profile?.weight || 50);
-  const [height, setHeight] = useState<number>(profile?.height || 160);
   const [updating, setUpdating] = useState<boolean>(false);
   const [success, setSuccess] = useState<boolean>(false);
+  // Pesan validasi UI (Lapis 1) untuk input berat sebelum POST (Req 6.5).
+  const [weightError, setWeightError] = useState<string | null>(null);
+
+  // Riwayat pengukuran untuk grafik time-series (Req 6.1, 6.2, 6.3).
+  const [weightHistory, setWeightHistory] = useState<Measurement[]>([]);
+  const [heightHistory, setHeightHistory] = useState<Measurement[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadingMeasurements, setLoadingMeasurements] = useState<boolean>(true);
+
+  // Ambil riwayat pengukuran saat mount (Req 6.1). Penanganan error fetch penuh
+  // (pesan + tombol coba lagi, Req 6.8) diselesaikan pada task 12.2; di sini
+  // kita menyetel `loadError` agar grafik kosong yang menyesatkan tidak dirender.
+  const fetchMeasurements = async () => {
+    setLoadingMeasurements(true);
+    setLoadError(null);
+    try {
+      if (isDemo) {
+        setWeightHistory([]);
+        setHeightHistory([]);
+      } else {
+        const { data } = await api.get('/api/users/measurements');
+        setWeightHistory(Array.isArray(data?.weight) ? data.weight : []);
+        setHeightHistory(Array.isArray(data?.height) ? data.height : []);
+      }
+    } catch {
+      setLoadError('Gagal memuat riwayat data tubuh Anda.');
+    } finally {
+      setLoadingMeasurements(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMeasurements();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDemo]);
 
   useEffect(() => {
     if (profile) {
       setWeight(profile.weight || 50);
-      setHeight(profile.height || 160);
     }
   }, [profile]);
 
-  const handleSave = async () => {
-    setUpdating(true);
-    setSuccess(false);
-    try {
-      const payload = {
-        name: profile?.name || 'Rara',
-        birth_date: profile?.birth_date || '2003-08-15',
-        last_period_date: profile?.last_period_date || '2026-05-10',
-        avg_cycle_length: profile?.avg_cycle_length || 28,
-        weight: weight,
-        height: height
-      };
+  // Data grafik siap-render (terurut menaik, menangani 0/1 titik).
+  const weightSeries = buildSeries(weightHistory);
+  const heightSeries = buildSeries(heightHistory);
 
+  // Berat terbaru untuk ringkasan profil: ambil titik terakhir riwayat bila ada,
+  // selain itu jatuh ke nilai profil.
+  const latestWeight =
+    weightSeries.length > 0 ? weightSeries[weightSeries.length - 1].value : profile?.weight ?? null;
+
+  /**
+   * Simpan berat badan terbaru (Req 6.4-6.6).
+   *
+   * Lapis 1 (UI): validasi memakai `validateWeight` bersama sebelum mengirim;
+   * jika gagal, tampilkan pesan inline dan jangan POST. Pada sukses, tambahkan
+   * entri yang dikembalikan backend ke `weightHistory` sehingga grafik berat
+   * ter-refresh tanpa reload halaman (< 2 detik, Req 6.6).
+   */
+  const handleSave = async () => {
+    setSuccess(false);
+    setWeightError(null);
+
+    // Lapis 1: validasi UI (reuse validator bersama + RANGES).
+    const errors = validateWeight(weight);
+    if (errors.length > 0) {
+      setWeightError(errors[0].message);
+      return;
+    }
+
+    setUpdating(true);
+    try {
       if (isDemo) {
         MOCK_PROFILE.weight = weight;
-        MOCK_PROFILE.height = height;
+        // Dalam Mode Demo, sintesis entri lokal agar grafik tetap ter-refresh.
+        const demoEntry: Measurement = {
+          id: `demo-${Date.now()}`,
+          user_id: profile?.id || 'demo',
+          type: 'weight',
+          value: weight,
+          recorded_at: new Date().toISOString().slice(0, 10),
+        };
+        setWeightHistory((prev) => [...prev, demoEntry]);
         setSuccess(true);
         setTimeout(() => setSuccess(false), 3000);
         onRefresh();
       } else {
-        await api.post('/api/users/onboard', payload);
+        const { data } = await api.post('/api/users/measurements/weight', { weight });
+        // Tambahkan entri baru ke riwayat -> grafik ter-refresh tanpa reload.
+        if (data?.measurement) {
+          setWeightHistory((prev) => [...prev, data.measurement as Measurement]);
+        } else {
+          // Fallback bila backend tidak mengembalikan entri: ambil ulang riwayat.
+          await fetchMeasurements();
+        }
         setSuccess(true);
         setTimeout(() => setSuccess(false), 3000);
         onRefresh();
       }
-    } catch (err: any) {
-      triggerError("Gagal memperbarui data fisik Anda.");
+    } catch (err) {
+      // Tampilkan pesan spesifik dari backend bila tersedia (Req 6.5).
+      const axiosError = err as AxiosError<{ error?: string }>;
+      const backendMsg = axiosError.response?.data?.error;
+      if (axiosError.response?.status === 400 && backendMsg) {
+        setWeightError(backendMsg);
+      } else {
+        triggerError('Gagal memperbarui berat badan Anda.');
+      }
     } finally {
       setUpdating(false);
     }
@@ -2312,6 +2569,15 @@ const AccountView: React.FC<AccountProps> = ({ profile, isDemo, onRefresh, trigg
   const age = profile?.birth_date 
     ? new Date().getFullYear() - new Date(profile.birth_date).getFullYear() 
     : 23;
+
+  // Tanggal lahir terformat untuk ditampilkan di profil (Req 6.1).
+  const birthDateLabel = profile?.birth_date
+    ? (() => {
+        const d = new Date(profile.birth_date);
+        if (isNaN(d.getTime())) return String(profile.birth_date);
+        return `${d.getDate()} ${SERIES_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+      })()
+    : '-';
 
   return (
     <div className="space-y-6 animate-slide-up pb-12">
@@ -2326,16 +2592,76 @@ const AccountView: React.FC<AccountProps> = ({ profile, isDemo, onRefresh, trigg
         
         <h3 className="text-lg font-bold text-rose-950">{profile?.name || 'Pengguna Moodara'}</h3>
         <p className="text-xs text-rose-600/70">{age} tahun</p>
+
+        {/* Ringkasan profil: tinggi, berat terbaru, tanggal lahir (Req 6.1) */}
+        <div className="grid grid-cols-3 gap-2 mt-4 relative">
+          <div className="bg-white/60 rounded-2xl py-2 px-1 border border-rose-100/50">
+            <span className="block text-[8px] font-extrabold uppercase tracking-wider text-rose-900/50 mb-0.5">Tinggi</span>
+            <span className="text-xs font-bold text-rose-900">
+              {profile?.height != null ? `${Math.round(Number(profile.height))} cm` : '-'}
+            </span>
+          </div>
+          <div className="bg-white/60 rounded-2xl py-2 px-1 border border-rose-100/50">
+            <span className="block text-[8px] font-extrabold uppercase tracking-wider text-rose-900/50 mb-0.5">Berat Terbaru</span>
+            <span className="text-xs font-bold text-rose-900">
+              {latestWeight != null ? `${Math.round(Number(latestWeight))} kg` : '-'}
+            </span>
+          </div>
+          <div className="bg-white/60 rounded-2xl py-2 px-1 border border-rose-100/50">
+            <span className="block text-[8px] font-extrabold uppercase tracking-wider text-rose-900/50 mb-0.5">Lahir</span>
+            <span className="text-xs font-bold text-rose-900">{birthDateLabel}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Grafik Riwayat Data Tubuh (Req 6.2, 6.3, 6.7, 6.8) */}
+      <div className="glass-card rounded-3xl p-6 border border-rose-100 space-y-6">
+        <div className="border-b border-rose-50 pb-3">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-900/50">Riwayat Tubuh</span>
+          <h4 className="text-sm font-bold text-rose-900">Grafik Berat & Tinggi Badan</h4>
+        </div>
+
+        {loadError ? (
+          // Req 6.8: tampilkan pesan kegagalan + tombol "Coba Lagi"; jangan render
+          // grafik kosong yang menyesatkan.
+          <div className="flex flex-col items-center text-center py-6 gap-3">
+            <AlertCircle className="w-8 h-8 text-rose-400" />
+            <p className="text-xs font-semibold text-rose-900/70 max-w-[240px]">{loadError}</p>
+            <button
+              onClick={fetchMeasurements}
+              className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold transition-colors"
+            >
+              Coba Lagi
+            </button>
+          </div>
+        ) : loadingMeasurements ? (
+          <p className="text-xs text-center text-rose-900/50 py-6">Memuat riwayat...</p>
+        ) : (
+          <div className="space-y-8">
+            <MeasurementChart
+              title="Berat Badan"
+              unit="kg"
+              color="#f43f5e"
+              data={weightSeries}
+            />
+            <MeasurementChart
+              title="Tinggi Badan"
+              unit="cm"
+              color="#14b8a6"
+              data={heightSeries}
+            />
+          </div>
+        )}
       </div>
 
       {/* Physical Stats Editor Card */}
       <div className="glass-card rounded-3xl p-6 border border-rose-100 space-y-6">
         <div className="border-b border-rose-50 pb-3">
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-900/50">Detail Fisik & Akun</span>
-          <h4 className="text-sm font-bold text-rose-900">Sesuaikan Data Tubuh Anda</h4>
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-900/50">Perbarui Berat Badan</span>
+          <h4 className="text-sm font-bold text-rose-900">Catat Berat Badan Terbaru</h4>
         </div>
 
-        {/* Weight Selector */}
+        {/* Weight Selector — batas kanonik berat 20-350 kg (Req 6.4) */}
         <div className="space-y-2">
           <div className="flex justify-between items-center px-1">
             <label className="text-xs font-bold text-rose-900/80">Berat Badan (BB)</label>
@@ -2343,56 +2669,30 @@ const AccountView: React.FC<AccountProps> = ({ profile, isDemo, onRefresh, trigg
           </div>
           <div className="flex items-center gap-3">
             <button 
-              onClick={() => setWeight(Math.max(30, weight - 1))}
+              onClick={() => { setWeightError(null); setWeight(Math.max(RANGES.weight.min, weight - 1)); }}
               className="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-100/50 flex items-center justify-center font-bold text-rose-700 transition-colors text-lg"
             >
               -
             </button>
             <input 
               type="number" 
-              min="30" 
-              max="150"
+              min={RANGES.weight.min}
+              max={RANGES.weight.max}
+              step="0.1"
               value={Math.round(weight)}
-              onChange={(e) => setWeight(parseInt(e.target.value) || 0)}
+              onChange={(e) => { setWeightError(null); setWeight(parseFloat(e.target.value) || 0); }}
               className="flex-1 px-4 py-2 text-center rounded-xl bg-white border border-rose-200/60 text-sm font-bold text-rose-950 focus:outline-none focus:ring-1 focus:ring-rose-400"
             />
             <button 
-              onClick={() => setWeight(Math.min(150, weight + 1))}
+              onClick={() => { setWeightError(null); setWeight(Math.min(RANGES.weight.max, weight + 1)); }}
               className="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-100/50 flex items-center justify-center font-bold text-rose-700 transition-colors text-lg"
             >
               +
             </button>
           </div>
-        </div>
-
-        {/* Height Selector */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center px-1">
-            <label className="text-xs font-bold text-rose-900/80">Tinggi Badan (TB)</label>
-            <span className="text-sm font-extrabold text-rose-600 bg-rose-50 px-3 py-1 rounded-full border border-rose-100/50">{Math.round(height)} cm</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setHeight(Math.max(100, height - 1))}
-              className="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-100/50 flex items-center justify-center font-bold text-rose-700 transition-colors text-lg"
-            >
-              -
-            </button>
-            <input 
-              type="number" 
-              min="100" 
-              max="220"
-              value={Math.round(height)}
-              onChange={(e) => setHeight(parseInt(e.target.value) || 0)}
-              className="flex-1 px-4 py-2 text-center rounded-xl bg-white border border-rose-200/60 text-sm font-bold text-rose-950 focus:outline-none focus:ring-1 focus:ring-rose-400"
-            />
-            <button 
-              onClick={() => setHeight(Math.min(220, height + 1))}
-              className="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-100/50 flex items-center justify-center font-bold text-rose-700 transition-colors text-lg"
-            >
-              +
-            </button>
-          </div>
+          {weightError && (
+            <p className="text-[10px] font-semibold text-rose-600 px-1 pt-1">{weightError}</p>
+          )}
         </div>
 
         {/* Informational Read-Only Stats */}
@@ -2421,11 +2721,11 @@ const AccountView: React.FC<AccountProps> = ({ profile, isDemo, onRefresh, trigg
             disabled={updating}
             className="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-2xl text-xs transition-all shadow-sm flex items-center justify-center gap-1.5"
           >
-            {updating ? "Menyimpan..." : "✓ Simpan Perubahan Tubuh"}
+            {updating ? "Menyimpan..." : "✓ Simpan Berat Badan"}
           </button>
           {success && (
             <p className="text-[10px] text-center text-teal-600 font-bold mt-2 animate-pulse">
-              ✓ Data tubuh berhasil diperbarui!
+              ✓ Berat badan berhasil diperbarui!
             </p>
           )}
         </div>
